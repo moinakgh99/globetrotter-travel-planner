@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import {
   Search,
   X,
@@ -153,6 +153,7 @@ export default function ActivitySearch() {
   const [favIds, setFavIds] = useState<Set<number>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 100);
@@ -165,9 +166,48 @@ export default function ActivitySearch() {
       a.name.toLowerCase().includes(query.toLowerCase()) ||
       a.location.toLowerCase().includes(query.toLowerCase()) ||
       a.category.toLowerCase().includes(query.toLowerCase());
+
     const matchesCat =
       selectedCategory === "All" || a.category === selectedCategory;
-    return matchesQuery && matchesCat;
+
+    const matchesQuickFilter =
+      !quickFilter ||
+      (quickFilter === "Outdoor" && a.outdoor) ||
+      (quickFilter === "Indoor" && !a.outdoor) ||
+      (quickFilter === "Under 2h" &&
+        parseFloat(a.duration.replace("h", "")) < 2) ||
+      (quickFilter === "Under €100" &&
+        parseFloat(a.cost.replace("€", "")) < 100) ||
+      (quickFilter === "Family" &&
+        a.tags.some((tag) => tag.toLowerCase() === "family")) ||
+      (quickFilter === "Solo" &&
+        a.tags.some((tag) => tag.toLowerCase() === "solo"));
+
+    return matchesQuery && matchesCat && matchesQuickFilter;
+  }).sort((a, b) => {
+    const priceA = parseFloat(a.cost.replace("€", ""));
+    const priceB = parseFloat(b.cost.replace("€", ""));
+
+    const durationA = parseFloat(a.duration.replace("h", ""));
+    const durationB = parseFloat(b.duration.replace("h", ""));
+
+    switch (sortBy) {
+      case "Rating":
+        return b.rating - a.rating;
+
+      case "Price: Low":
+        return priceA - priceB;
+
+      case "Price: High":
+        return priceB - priceA;
+
+      case "Duration":
+        return durationA - durationB;
+
+      case "Recommended":
+      default:
+        return b.rating - a.rating;
+    }
   });
 
   function handleAdd(id: number) {
@@ -255,6 +295,7 @@ export default function ActivitySearch() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
+                    style={{ colorScheme: "dark" }}
                     className="appearance-none pl-3 pr-8 py-3 bg-white/[0.03] border border-white/[0.08] rounded text-[#f5f0e8]/60 text-sm focus:outline-none focus:border-white/20 cursor-pointer"
                   >
                     {SORT_OPTIONS.map((o) => (
@@ -394,7 +435,11 @@ export default function ActivitySearch() {
 
             {/* Trip context panel — desktop sidebar */}
             <div className="hidden lg:block w-72 flex-shrink-0">
-              <TripContextPanel addedCount={addedIds.size} />
+              <TripContextPanel
+                addedCount={addedIds.size}
+                quickFilter={quickFilter}
+                setQuickFilter={setQuickFilter}
+              />
             </div>
           </div>
         </div>
@@ -600,7 +645,15 @@ function ActivityCard({
   );
 }
 
-function TripContextPanel({ addedCount }: { addedCount: number }) {
+function TripContextPanel({
+  addedCount,
+  quickFilter,
+  setQuickFilter,
+}: {
+  addedCount: number;
+  quickFilter: string | null;
+  setQuickFilter: Dispatch<SetStateAction<string | null>>;
+}) {
   const totalActivities = 3 + addedCount;
   const budget = 1200;
   const spent = 420 + addedCount * 95;
@@ -619,6 +672,7 @@ function TripContextPanel({ addedCount }: { addedCount: number }) {
               Day 03 · 14 March
             </p>
           </div>
+
           <div className="w-8 h-8 rounded-full border border-[#c4714a]/30 flex items-center justify-center">
             <MapPin size={13} className="text-[#c4714a]" />
           </div>
@@ -633,17 +687,20 @@ function TripContextPanel({ addedCount }: { addedCount: number }) {
               {totalActivities}
             </span>
           </div>
+
           <div className="flex justify-between items-center">
             <span className="text-xs text-[#f5f0e8]/40">Budget remaining</span>
             <span className="font-mono text-sm text-[#7a9e7e]">
               €{budget - spent}
             </span>
           </div>
+
           <div>
             <div className="flex justify-between text-xs mb-1.5">
               <span className="text-[#f5f0e8]/40">Budget used</span>
               <span className="font-mono text-[#f5f0e8]/50">{pct}%</span>
             </div>
+
             <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
               <div
                 className="h-full bg-[#c4714a] rounded-full transition-all duration-700"
@@ -659,6 +716,7 @@ function TripContextPanel({ addedCount }: { addedCount: number }) {
         <p className="font-mono text-[9px] tracking-widest uppercase text-[#f5f0e8]/30 mb-4">
           Route
         </p>
+
         <svg viewBox="0 0 200 280" className="w-full opacity-80">
           {/* Route line */}
           <line
@@ -686,6 +744,7 @@ function TripContextPanel({ addedCount }: { addedCount: number }) {
                 fill={active ? "#c4714a" : "#f5f0e8"}
                 opacity={active ? 1 : 0.3}
               />
+
               {active && (
                 <circle
                   cx="100"
@@ -698,6 +757,7 @@ function TripContextPanel({ addedCount }: { addedCount: number }) {
                   className="animate-float"
                 />
               )}
+
               <text
                 x="115"
                 y={y + 4}
@@ -718,6 +778,7 @@ function TripContextPanel({ addedCount }: { addedCount: number }) {
         <p className="font-mono text-[9px] tracking-widest uppercase text-[#f5f0e8]/30 mb-3">
           Quick filters
         </p>
+
         <div className="flex flex-wrap gap-1.5">
           {[
             "Outdoor",
@@ -729,7 +790,14 @@ function TripContextPanel({ addedCount }: { addedCount: number }) {
           ].map((f) => (
             <button
               key={f}
-              className="text-[10px] px-2.5 py-1 border border-white/[0.06] rounded text-[#f5f0e8]/40 hover:border-white/15 hover:text-[#f5f0e8]/70 transition-all"
+              onClick={() =>
+                setQuickFilter((current) => (current === f ? null : f))
+              }
+              className={`text-[10px] px-2.5 py-1 border rounded transition-all ${
+                quickFilter === f
+                  ? "border-[#c4714a]/50 text-[#c4714a] bg-[#c4714a]/10"
+                  : "border-white/[0.06] text-[#f5f0e8]/40 hover:border-white/15 hover:text-[#f5f0e8]/70"
+              }`}
             >
               {f}
             </button>
