@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   MapPin,
   Clock,
@@ -231,9 +232,13 @@ const TYPE_CONFIG: Record<
 };
 
 export default function ItineraryView() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const tripId = id || "1";
   const [selectedDay, setSelectedDay] = useState(1);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set([101]));
   const [completedIds, setCompletedIds] = useState<Set<number>>(new Set());
+  const [removedIds, setRemovedIds] = useState<Set<number>>(new Set());
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -245,10 +250,21 @@ export default function ItineraryView() {
   }, [selectedDay]);
 
   const dayContent = DAY_CONTENT[selectedDay] || DAY_CONTENT[1];
+  const visibleDayContent = {
+    morning: (dayContent.morning || []).filter(
+      (event) => !removedIds.has(event.id),
+    ),
+    afternoon: (dayContent.afternoon || []).filter(
+      (event) => !removedIds.has(event.id),
+    ),
+    evening: (dayContent.evening || []).filter(
+      (event) => !removedIds.has(event.id),
+    ),
+  };
   const allEvents = [
-    ...(dayContent.morning || []),
-    ...(dayContent.afternoon || []),
-    ...(dayContent.evening || []),
+    ...visibleDayContent.morning,
+    ...visibleDayContent.afternoon,
+    ...visibleDayContent.evening,
   ];
   const totalCost = allEvents.reduce((sum, e) => {
     const n = parseFloat(e.cost.replace("€", "").replace("/night", ""));
@@ -268,6 +284,45 @@ export default function ItineraryView() {
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
+  }
+
+  function removeEvent(id: number) {
+    setRemovedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+
+    setCompletedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  async function handleShare() {
+    const shareUrl = window.location.href;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Europe, Slowly.",
+          text: "Check out my Europe trip itinerary.",
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        alert("Itinerary link copied!");
+      }
+    } catch (error) {
+      console.log("Share cancelled");
+    }
   }
 
   return (
@@ -305,15 +360,24 @@ export default function ItineraryView() {
                   </p>
                   <p className="font-mono text-[#f5f0e8] text-lg">€2,840</p>
                 </div>
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded text-[#f5f0e8]/60 text-sm hover:bg-white/[0.07] transition-colors">
+                <button
+                  onClick={() => navigate("/trips/create")}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded text-[#f5f0e8]/60 text-sm hover:bg-white/[0.07] transition-colors"
+                >
                   <Edit3 size={14} />
                   Edit
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded text-[#f5f0e8]/60 text-sm hover:bg-white/[0.07] transition-colors">
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded text-[#f5f0e8]/60 text-sm hover:bg-white/[0.07] transition-colors"
+                >
                   <Share2 size={14} />
                   Share
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded text-[#f5f0e8]/60 text-sm hover:bg-white/[0.07] transition-colors">
+                <button
+                  onClick={() => navigate(`/trips/${tripId}/calendar`)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded text-[#f5f0e8]/60 text-sm hover:bg-white/[0.07] transition-colors"
+                >
                   <Calendar size={14} />
                 </button>
               </div>
@@ -356,7 +420,7 @@ export default function ItineraryView() {
             {/* Timeline */}
             <div className="flex-1 min-w-0">
               {(["morning", "afternoon", "evening"] as const).map((period) => {
-                const events = dayContent[period] || [];
+                const events = visibleDayContent[period] || [];
                 if (events.length === 0) return null;
                 return (
                   <div key={period} className="mb-8">
@@ -380,6 +444,7 @@ export default function ItineraryView() {
                             completed={completedIds.has(event.id)}
                             onToggleExpand={() => toggleExpand(event.id)}
                             onToggleComplete={() => toggleComplete(event.id)}
+                            onRemove={() => removeEvent(event.id)}
                           />
                         ))}
                       </div>
@@ -411,6 +476,7 @@ function TimelineEntry({
   completed,
   onToggleExpand,
   onToggleComplete,
+  onRemove,
 }: {
   event: ItineraryEvent;
   index: number;
@@ -418,6 +484,7 @@ function TimelineEntry({
   completed: boolean;
   onToggleExpand: () => void;
   onToggleComplete: () => void;
+  onRemove: () => void;
 }) {
   const config = TYPE_CONFIG[event.type];
   const Icon = config.icon;
@@ -545,7 +612,10 @@ function TimelineEntry({
                 <Edit3 size={11} />
                 Edit
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-white/[0.08] text-[#f5f0e8]/40 hover:border-red-500/30 hover:text-red-400 transition-all ml-auto">
+              <button
+                onClick={onRemove}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-white/[0.08] text-[#f5f0e8]/40 hover:border-red-500/30 hover:text-red-400 transition-all ml-auto"
+              >
                 <Trash2 size={11} />
                 Remove
               </button>
@@ -566,6 +636,9 @@ function TripSummaryPanel({
   completedCount: number;
   totalCost: number;
 }) {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const tripId = id || "1";
   const day = DAYS.find((d) => d.id === selectedDay)!;
 
   return (
@@ -699,9 +772,27 @@ function TripSummaryPanel({
             (action) => (
               <button
                 key={action}
+                onClick={() => {
+                  if (action === "Add Activity") {
+                    navigate("/activities");
+                  }
+
+                  if (action === "Edit Trip") {
+                    alert("Edit Trip will be available soon.");
+                  }
+
+                  if (action === "View Calendar") {
+                    navigate(`/trips/${tripId}/calendar`);
+                  }
+
+                  if (action === "Export PDF") {
+                    alert("PDF export coming soon.");
+                  }
+                }}
                 className="w-full text-left px-3 py-2 text-xs text-[#f5f0e8]/50 hover:text-[#f5f0e8]/80 hover:bg-white/[0.04] rounded transition-all flex items-center justify-between group"
               >
                 {action}
+
                 <ChevronRight
                   size={11}
                   className="opacity-0 group-hover:opacity-60 transition-opacity"
