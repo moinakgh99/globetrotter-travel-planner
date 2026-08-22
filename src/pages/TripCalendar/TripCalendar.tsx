@@ -114,16 +114,32 @@ const EVENT_COLORS = {
 };
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MARCH_2024_START = 5; // March 1, 2024 is a Friday (index 5)
-const MARCH_DAYS = 31;
+const CALENDAR_YEAR = 2026;
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 type EventFilter = "all" | "activity" | "transport" | "hotel" | "meal" | "free";
 
 export default function TripCalendar() {
+  const [currentMonth, setCurrentMonth] = useState(2);
   const [selectedDay, setSelectedDay] = useState<number | null>(12);
   const [activeFilter, setActiveFilter] = useState<EventFilter>("all");
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [loaded, setLoaded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 100);
@@ -131,30 +147,52 @@ export default function TripCalendar() {
   }, []);
 
   const tripDays = Object.keys(MONTH_EVENTS).map(Number);
-  const isTripDay = (day: number) => tripDays.includes(day);
-  const selectedEvents = selectedDay ? MONTH_EVENTS[selectedDay] || [] : [];
 
-  const selectedDestination = selectedDay
-    ? DESTINATIONS.find((d) => {
-        const [start, end] = d.dates.replace("Mar ", "").split("–").map(Number);
-        return selectedDay >= start && selectedDay <= end;
-      })
-    : null;
+  const isTripDay = (day: number) =>
+    currentMonth === 2 && tripDays.includes(day);
 
-  // Build calendar grid
-  const totalCells = Math.ceil((MARCH_DAYS + MARCH_2024_START) / 7) * 7;
+  const selectedEvents =
+    currentMonth === 2 && selectedDay ? MONTH_EVENTS[selectedDay] || [] : [];
+
+  const selectedDestination =
+    currentMonth === 2 && selectedDay
+      ? DESTINATIONS.find((d) => {
+          const [start, end] = d.dates
+            .replace("Mar ", "")
+            .split("–")
+            .map(Number);
+
+          return selectedDay >= start && selectedDay <= end;
+        })
+      : null;
+
+  // Build calendar grid dynamically for the selected month
+  const firstDay = new Date(CALENDAR_YEAR, currentMonth, 1).getDay();
+
+  const daysInMonth = new Date(CALENDAR_YEAR, currentMonth + 1, 0).getDate();
+
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
   const cells: (number | null)[] = Array.from(
     { length: totalCells },
     (_, i) => {
-      const day = i - MARCH_2024_START + 1;
-      return day >= 1 && day <= MARCH_DAYS ? day : null;
+      const day = i - firstDay + 1;
+
+      return day >= 1 && day <= daysInMonth ? day : null;
     },
   );
 
   const filterEvents = (events: typeof selectedEvents) =>
-    activeFilter === "all"
-      ? events
-      : events.filter((e) => e.type === activeFilter);
+    events.filter((e) => {
+      const matchesType = activeFilter === "all" || e.type === activeFilter;
+
+      const matchesSearch =
+        !searchQuery ||
+        e.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.city?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return matchesType && matchesSearch;
+    });
 
   return (
     <div className="relative min-h-screen">
@@ -175,7 +213,7 @@ export default function TripCalendar() {
                     Europe, Slowly.
                   </h1>
                   <span className="font-mono text-xs text-[#f5f0e8]/30">
-                    March 2024
+                    {MONTH_NAMES[currentMonth]} {CALENDAR_YEAR}
                   </span>
                 </div>
                 <p className="text-[#f5f0e8]/40 text-sm mt-0.5">
@@ -192,6 +230,8 @@ export default function TripCalendar() {
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-[#f5f0e8]/25"
                   />
                   <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search events..."
                     className="pl-8 pr-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded text-xs text-[#f5f0e8]/70 placeholder-[#f5f0e8]/20 focus:outline-none focus:border-white/20 w-40"
                   />
@@ -262,143 +302,316 @@ export default function TripCalendar() {
               </div>
 
               {/* Month nav */}
+              {/* Month nav */}
               <div className="flex items-center justify-between mb-4">
-                <button className="w-8 h-8 flex items-center justify-center text-[#f5f0e8]/30 hover:text-[#f5f0e8]/60 transition-colors rounded hover:bg-white/[0.04]">
+                <button
+                  onClick={() => {
+                    if (currentMonth > 0) {
+                      setCurrentMonth((month) => month - 1);
+                      setSelectedDay(null);
+                    }
+                  }}
+                  disabled={currentMonth === 0}
+                  className="w-8 h-8 flex items-center justify-center text-[#f5f0e8]/30 hover:text-[#f5f0e8]/60 transition-colors rounded hover:bg-white/[0.04] disabled:opacity-20 disabled:cursor-not-allowed"
+                >
                   <ChevronLeft size={16} />
                 </button>
+
                 <h2 className="font-serif text-lg text-[#f5f0e8] font-light">
-                  March 2024
+                  {MONTH_NAMES[currentMonth]} {CALENDAR_YEAR}
                 </h2>
-                <button className="w-8 h-8 flex items-center justify-center text-[#f5f0e8]/30 hover:text-[#f5f0e8]/60 transition-colors rounded hover:bg-white/[0.04]">
+
+                <button
+                  onClick={() => {
+                    if (currentMonth < 11) {
+                      setCurrentMonth((month) => month + 1);
+                      setSelectedDay(null);
+                    }
+                  }}
+                  disabled={currentMonth === 11}
+                  className="w-8 h-8 flex items-center justify-center text-[#f5f0e8]/30 hover:text-[#f5f0e8]/60 transition-colors rounded hover:bg-white/[0.04] disabled:opacity-20 disabled:cursor-not-allowed"
+                >
                   <ChevronRight size={16} />
                 </button>
               </div>
 
-              {/* Calendar grid */}
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded overflow-hidden">
-                {/* Day headers */}
-                <div className="grid grid-cols-7 border-b border-white/[0.06]">
-                  {DAYS_OF_WEEK.map((d) => (
-                    <div
-                      key={d}
-                      className="py-2.5 text-center font-mono text-[10px] text-[#f5f0e8]/25 tracking-widest uppercase"
-                    >
-                      {d}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Calendar cells */}
-                <div className="grid grid-cols-7">
-                  {cells.map((day, i) => {
-                    const isTrip = day !== null && isTripDay(day);
-                    const isSelected = day === selectedDay;
-                    const dayEvents = day ? MONTH_EVENTS[day] || [] : [];
-                    const filteredDayEvents = filterEvents(dayEvents);
-                    const hasWarning = dayEvents.some((e) => e.warning);
-                    const dest = day
-                      ? DESTINATIONS.find((d) => {
-                          const [start, end] = d.dates
-                            .replace("Mar ", "")
-                            .split("–")
-                            .map(Number);
-                          return day >= start && day <= end;
-                        })
-                      : null;
-
-                    return (
+              {/* Calendar / List View */}
+              {viewMode === "calendar" ? (
+                <div className="bg-white/[0.02] border border-white/[0.06] rounded overflow-hidden">
+                  {/* Day headers */}
+                  <div className="grid grid-cols-7 border-b border-white/[0.06]">
+                    {DAYS_OF_WEEK.map((d) => (
                       <div
-                        key={i}
-                        onClick={() =>
-                          day &&
-                          setSelectedDay(day === selectedDay ? null : day)
-                        }
-                        className={`min-h-[80px] md:min-h-[100px] border-b border-r border-white/[0.04] p-1.5 md:p-2 relative transition-all duration-200 ${
-                          day ? "cursor-pointer" : ""
-                        } ${
-                          isSelected
-                            ? "bg-[#c4714a]/10 border-[#c4714a]/20"
-                            : isTrip
-                              ? "hover:bg-white/[0.04]"
-                              : "opacity-40"
-                        }`}
-                        style={{
-                          borderRight: (i + 1) % 7 === 0 ? "none" : undefined,
-                        }}
+                        key={d}
+                        className="py-2.5 text-center font-mono text-[10px] text-[#f5f0e8]/25 tracking-widest uppercase"
                       >
-                        {day !== null && (
-                          <>
-                            {/* Day number */}
-                            <div className="flex items-start justify-between mb-1">
-                              <span
-                                className={`font-mono text-xs ${
-                                  isSelected
-                                    ? "text-[#c4714a] font-medium"
-                                    : isTrip
-                                      ? "text-[#f5f0e8]/70"
-                                      : "text-[#f5f0e8]/25"
-                                }`}
-                              >
-                                {day}
-                              </span>
-                              {hasWarning && (
-                                <AlertTriangle
-                                  size={9}
-                                  className="text-yellow-500/60 flex-shrink-0"
+                        {d}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calendar cells */}
+                  <div className="grid grid-cols-7">
+                    {cells.map((day, i) => {
+                      const isTrip = day !== null && isTripDay(day);
+                      const isSelected = day === selectedDay;
+                      const dayEvents =
+                        currentMonth === 2 && day
+                          ? MONTH_EVENTS[day] || []
+                          : [];
+                      const filteredDayEvents = filterEvents(dayEvents);
+                      const hasWarning = dayEvents.some((e) => e.warning);
+
+                      const dest = day
+                        ? DESTINATIONS.find((d) => {
+                            const [start, end] = d.dates
+                              .replace("Mar ", "")
+                              .split("–")
+                              .map(Number);
+
+                            return day >= start && day <= end;
+                          })
+                        : null;
+
+                      return (
+                        <div
+                          key={i}
+                          onClick={() =>
+                            day &&
+                            setSelectedDay(day === selectedDay ? null : day)
+                          }
+                          className={`min-h-[80px] md:min-h-[100px] border-b border-r border-white/[0.04] p-1.5 md:p-2 relative transition-all duration-200 ${
+                            day ? "cursor-pointer" : ""
+                          } ${
+                            isSelected
+                              ? "bg-[#c4714a]/10 border-[#c4714a]/20"
+                              : isTrip
+                                ? "hover:bg-white/[0.04]"
+                                : "opacity-40"
+                          }`}
+                          style={{
+                            borderRight: (i + 1) % 7 === 0 ? "none" : undefined,
+                          }}
+                        >
+                          {day !== null && (
+                            <>
+                              <div className="flex items-start justify-between mb-1">
+                                <span
+                                  className={`font-mono text-xs ${
+                                    isSelected
+                                      ? "text-[#c4714a] font-medium"
+                                      : isTrip
+                                        ? "text-[#f5f0e8]/90"
+                                        : "text-[#f5f0e8]/60"
+                                  }`}
+                                >
+                                  {day}
+                                </span>
+
+                                {hasWarning && (
+                                  <AlertTriangle
+                                    size={9}
+                                    className="text-yellow-500/60 flex-shrink-0"
+                                  />
+                                )}
+                              </div>
+
+                              {dest && (
+                                <div
+                                  className="absolute top-0 left-0 right-0 h-0.5"
+                                  style={{
+                                    backgroundColor: dest.color,
+                                    opacity: 0.5,
+                                  }}
                                 />
                               )}
-                            </div>
 
-                            {/* Destination color bar */}
-                            {dest && (
-                              <div
-                                className="absolute top-0 left-0 right-0 h-0.5"
-                                style={{
-                                  backgroundColor: dest.color,
-                                  opacity: 0.5,
-                                }}
-                              />
-                            )}
+                              <div className="space-y-0.5">
+                                {filteredDayEvents
+                                  .slice(0, 2)
+                                  .map((event, ei) => {
+                                    const EIcon = EVENT_ICONS[event.type];
+                                    const eColor = EVENT_COLORS[event.type];
 
-                            {/* Events */}
-                            <div className="space-y-0.5">
-                              {filteredDayEvents
-                                .slice(0, 2)
-                                .map((event, ei) => {
-                                  const EIcon = EVENT_ICONS[event.type];
-                                  const eColor = EVENT_COLORS[event.type];
-                                  return (
-                                    <div
-                                      key={ei}
-                                      className="flex items-center gap-1 rounded px-1 py-0.5"
-                                      style={{ backgroundColor: `${eColor}18` }}
-                                    >
-                                      <EIcon
-                                        size={8}
-                                        style={{ color: eColor, flexShrink: 0 }}
-                                      />
-                                      <span
-                                        className="text-[9px] truncate leading-none"
-                                        style={{ color: eColor }}
+                                    return (
+                                      <div
+                                        key={ei}
+                                        className="flex items-center gap-1 rounded px-1 py-0.5"
+                                        style={{
+                                          backgroundColor: `${eColor}18`,
+                                        }}
                                       >
-                                        {event.label}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              {filteredDayEvents.length > 2 && (
-                                <p className="text-[9px] text-[#f5f0e8]/25 px-1">
-                                  +{filteredDayEvents.length - 2} more
+                                        <EIcon
+                                          size={8}
+                                          style={{
+                                            color: eColor,
+                                            flexShrink: 0,
+                                          }}
+                                        />
+
+                                        <span
+                                          className="text-[9px] truncate leading-none"
+                                          style={{ color: eColor }}
+                                        >
+                                          {event.label}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+
+                                {filteredDayEvents.length > 2 && (
+                                  <p className="text-[9px] text-[#f5f0e8]/25 px-1">
+                                    +{filteredDayEvents.length - 2} more
+                                  </p>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                /* LIST VIEW */
+                <div className="space-y-2">
+                  {(currentMonth === 2 ? Object.entries(MONTH_EVENTS) : [])
+                    .sort(([a], [b]) => Number(a) - Number(b))
+                    .map(([day, events]) => {
+                      const dayNumber = Number(day);
+                      const filteredEvents = filterEvents(events);
+
+                      if (filteredEvents.length === 0) {
+                        return null;
+                      }
+
+                      const destination = DESTINATIONS.find((d) => {
+                        const [start, end] = d.dates
+                          .replace("Mar ", "")
+                          .split("–")
+                          .map(Number);
+
+                        return dayNumber >= start && dayNumber <= end;
+                      });
+
+                      const isSelected = selectedDay === dayNumber;
+
+                      return (
+                        <button
+                          key={day}
+                          onClick={() => setSelectedDay(dayNumber)}
+                          className={`w-full text-left p-4 rounded border transition-all duration-200 ${
+                            isSelected
+                              ? "bg-[#c4714a]/10 border-[#c4714a]/30"
+                              : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                          }`}
+                        >
+                          <div className="flex items-start gap-4">
+                            {/* Date */}
+                            <div className="w-14 flex-shrink-0">
+                              <p className="font-mono text-[10px] uppercase tracking-widest text-[#c4714a]/70">
+                                {MONTH_NAMES[currentMonth].slice(0, 3)}
+                              </p>
+
+                              <p
+                                className={`font-serif text-2xl font-light ${
+                                  isSelected
+                                    ? "text-[#c4714a]"
+                                    : "text-[#f5f0e8]/80"
+                                }`}
+                              >
+                                {dayNumber}
+                              </p>
+
+                              {destination && (
+                                <p
+                                  className="text-[9px] mt-1 truncate"
+                                  style={{ color: destination.color }}
+                                >
+                                  {destination.city}
                                 </p>
                               )}
                             </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
+
+                            {/* Events */}
+                            <div className="flex-1 space-y-2">
+                              {filteredEvents.map((event, index) => {
+                                const EIcon = EVENT_ICONS[event.type];
+                                const eColor = EVENT_COLORS[event.type];
+
+                                return (
+                                  <div
+                                    key={index}
+                                    className="flex items-center gap-3"
+                                  >
+                                    <div
+                                      className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0"
+                                      style={{
+                                        backgroundColor: `${eColor}18`,
+                                      }}
+                                    >
+                                      <EIcon
+                                        size={12}
+                                        style={{ color: eColor }}
+                                      />
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm text-[#f5f0e8]/75 truncate">
+                                        {event.label}
+                                      </p>
+
+                                      {event.city && (
+                                        <p className="text-[10px] text-[#f5f0e8]/30 mt-0.5 flex items-center gap-1">
+                                          <MapPin size={8} />
+                                          {event.city}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      {event.warning && (
+                                        <AlertTriangle
+                                          size={11}
+                                          className="text-yellow-500/60"
+                                        />
+                                      )}
+
+                                      {event.cost && (
+                                        <span className="font-mono text-xs text-[#f5f0e8]/45">
+                                          {event.cost}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            <ChevronRight
+                              size={14}
+                              className="text-[#f5f0e8]/20 mt-2 flex-shrink-0"
+                            />
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                  {Object.entries(MONTH_EVENTS).every(
+                    ([, events]) => filterEvents(events).length === 0,
+                  ) && (
+                    <div className="p-10 text-center bg-white/[0.02] border border-white/[0.06] rounded">
+                      <p className="text-sm text-[#f5f0e8]/40">
+                        No events found.
+                      </p>
+
+                      <p className="text-xs text-[#f5f0e8]/20 mt-1">
+                        Try changing your search or filter.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
 
               {/* Selected day detail */}
               {selectedDay && selectedEvents.length > 0 && (
@@ -406,7 +619,7 @@ export default function TripCalendar() {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <p className="font-mono text-[10px] tracking-widest uppercase text-[#c4714a]/70 mb-0.5">
-                        March {selectedDay}
+                        {MONTH_NAMES[currentMonth]} {selectedDay}
                       </p>
                       <p className="text-[#f5f0e8]/70 text-sm font-medium">
                         {selectedDestination?.city || "Day activities"}
@@ -580,6 +793,11 @@ export default function TripCalendar() {
               <CalendarSidebar
                 selectedDay={selectedDay}
                 selectedDestination={selectedDestination}
+                currentMonth={currentMonth}
+                onJumpToDestination={(day) => {
+                  setCurrentMonth(2);
+                  setSelectedDay(day);
+                }}
               />
             </div>
           </div>
@@ -592,16 +810,22 @@ export default function TripCalendar() {
 function CalendarSidebar({
   selectedDay,
   selectedDestination,
+  currentMonth,
+  onJumpToDestination,
 }: {
   selectedDay: number | null;
   selectedDestination: (typeof DESTINATIONS)[0] | null | undefined;
-}) {
+  currentMonth: number;
+  onJumpToDestination: (day: number) => void;
+})  {
   return (
     <div className="sticky top-20 space-y-3">
       {/* Selected day summary */}
       <div className="p-4 bg-white/[0.03] border border-white/[0.08] rounded">
         <p className="font-mono text-[9px] tracking-widest uppercase text-[#f5f0e8]/30 mb-3">
-          {selectedDay ? `March ${selectedDay}` : "Select a day"}
+          {selectedDay
+            ? `${MONTH_NAMES[currentMonth]} ${selectedDay}`
+            : "Select a day"}
         </p>
         {selectedDestination ? (
           <div>
@@ -696,6 +920,14 @@ function CalendarSidebar({
           {DESTINATIONS.map((d) => (
             <button
               key={d.city}
+              onClick={() => {
+                const [start] = d.dates
+                  .replace("Mar ", "")
+                  .split("–")
+                  .map(Number);
+
+                onJumpToDestination(start);
+              }}
               className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-xs text-[#f5f0e8]/45 hover:text-[#f5f0e8]/75 hover:bg-white/[0.04] transition-all group"
             >
               <div
