@@ -1,0 +1,52 @@
+### Variables
+@baseUrl = http://localhost:5000/api
+@token = your_jwt_token_here
+
+### Create a new trip (Valid)
+POST {{baseUrl}}/trips
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Summer in Paris",
+  "description": "A wonderful 2-week vacation in France.",
+  "start_date": "2026-06-01",
+  "end_date": "2026-06-15",
+  "is_public": true
+}
+
+### Create a new trip (Invalid - missing name, bad dates)
+POST {{baseUrl}}/trips
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "start_date": "2026-06-15",
+  "end_date": "2026-06-01"
+}
+
+### Get all my trips
+GET {{baseUrl}}/trips
+Authorization: Bearer {{token}}
+
+### Get public trips
+GET {{baseUrl}}/trips?public=true
+Authorization: Bearer {{token}}
+
+### Get a single trip by ID (Replace 1 with actual ID)
+GET {{baseUrl}}/trips/1
+Authorization: Bearer {{token}}
+
+### Update a trip
+PUT {{baseUrl}}/trips/1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Summer in Paris and Lyon",
+  "end_date": "2026-06-20"
+}
+
+### Delete a trip
+DELETE {{baseUrl}}/trips/1
+Authorization: Bearer {{token}}
