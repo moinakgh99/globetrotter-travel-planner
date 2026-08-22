@@ -12,7 +12,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:5175"],
+  origin: ["http://localhost:5173", "http://localhost:5175","https://globetrotter-nyxo.onrender.com"],
   credentials: true,
 }));
 app.use(express.json());
