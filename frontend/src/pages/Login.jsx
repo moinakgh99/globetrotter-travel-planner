@@ -56,6 +56,13 @@ export default function Login() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
+
+      // Guard against non-JSON responses (e.g. HTML 404 from stale deploy)
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server error. Please try again later.');
+      }
+
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Login failed');
       localStorage.setItem('token', data.token);
