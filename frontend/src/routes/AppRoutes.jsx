@@ -3,6 +3,10 @@ import CreateTrip from "../pages/CreateTrip";
 import ItineraryBuilder from "../pages/IternaryBuilder";
 import TripBudget from "../pages/TripBudget";
 import TripPlannerWizard from "../pages/TripPlannerWizard";
+import Register from "../pages/Register";
+import Login from "../pages/Login";
+import Dashboard from "../pages/Dashboard";
+import MyTrip from "../pages/MyTrip";
 
 // Wrapper for the Wizard to pull state from React Router
 function TripPlannerWizardWrapper() {
@@ -35,10 +39,11 @@ function ItineraryBuilderWrapper() {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<div>Dashboard</div>} />
-      <Route path="/login" element={<div>Login</div>} />
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/register" element={<Register/>}/>
+      <Route path="/login" element={<Login/>} />
       <Route path="/trips/create" element={<CreateTrip/>} />
-      <Route path="/trips" element={<div>My Trips</div>} />
+      <Route path="/trips" element={<MyTrip />} />
       
       {/* AI Planner Wizard Flow */}
       <Route path="/trips/:id/plan" element={<TripPlannerWizardWrapper/>} />
@@ -51,6 +56,7 @@ function AppRoutes() {
       <Route path="/cities" element={<div>City Search</div>} />
       <Route path="/activities" element={<div>Activity Search</div>} />
       <Route path="/trips/budget" element={<TripBudget/>} />
+      <Route path="/trips/:id/budget" element={<TripBudget/>} />
       <Route path="/trips/:id/calendar" element={<div>Trip Calendar</div>} />
       <Route path="/shared/:id" element={<div>Shared Itinerary</div>} />
       <Route path="/profile" element={<div>Profile</div>} />

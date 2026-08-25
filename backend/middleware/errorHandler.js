@@ -5,10 +5,10 @@ const errorHandler = (err, req, res, next) => {
     console.error(err.stack);
   }
 
-  // Send a generic response to the client
   const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
   res.status(statusCode).json({
-    error: 'Something went wrong. Please try again later.',
+    error: err.message || 'Something went wrong. Please try again later.',
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
   });
 };
 

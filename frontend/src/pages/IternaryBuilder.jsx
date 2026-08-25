@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   MapPin, 
   Plus, 
@@ -15,7 +16,12 @@ import {
   X, 
   Check, 
   Search,
-  AlertCircle
+  AlertCircle,
+  Home,
+  Share2,
+  Globe,
+  Copy,
+  CheckCheck
 } from 'lucide-react';
 
 // --- MOCK DATA ---
@@ -124,13 +130,17 @@ const CATEGORY_ICONS = {
 
 const CATEGORIES = Object.keys(CATEGORY_ICONS);
 
-export default function ItineraryBuilder({ tripId }) {
+export default function ItineraryBuilder() {
+  const { id } = useParams();
+  const navigate = useNavigate();
   // --- STATE ---
+  const [trip, setTrip] = useState(null);
   const [stops, setStops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStopId, setSelectedStopId] = useState(null);
   const [isAddingStop, setIsAddingStop] = useState(false);
   const [addingActivityToDay, setAddingActivityToDay] = useState(null); // format: "stopId-date"
+  const [copied, setCopied] = useState(false);
   
   // Drag and Drop state
   const [draggedItemIndex, setDraggedItemIndex] = useState(null);
@@ -147,18 +157,29 @@ export default function ItineraryBuilder({ tripId }) {
   }, []);
 
   useEffect(() => {
-    const fetchItinerary = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/trips/${tripId}/stops`, {
+        
+        // Fetch trip details
+        const tripResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/trips/${id}`, {
           headers: {
             'Authorization': 'Bearer ' + localStorage.getItem('token')
           }
         });
         
-        if (!response.ok) {
-          throw new Error('Failed to fetch itinerary');
-        }
+        if (!tripResponse.ok) throw new Error('Failed to fetch trip');
+        const tripData = await tripResponse.json();
+        setTrip(tripData);
+
+        // Fetch itinerary stops
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/trips/${id}/stops`, {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+          }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch itinerary stops');
         
         const data = await response.json();
         setStops(data);
@@ -166,20 +187,19 @@ export default function ItineraryBuilder({ tripId }) {
           setSelectedStopId(data[0].id);
         }
       } catch (err) {
-        console.error("Error fetching itinerary:", err);
-        // Fallback to empty array instead of mock data
+        console.error("Error fetching data:", err);
         setStops([]);
       } finally {
         setLoading(false);
       }
     };
 
-    if (tripId) {
-      fetchItinerary();
+    if (id) {
+      fetchData();
     } else {
       setLoading(false);
     }
-  }, [tripId]);
+  }, [id]);
 
   // --- COMPUTED DATA ---
   const selectedStop = useMemo(() => stops.find(s => s.id === selectedStopId), [stops, selectedStopId]);
@@ -199,12 +219,13 @@ export default function ItineraryBuilder({ tripId }) {
   }, [stops]);
 
   const tripDateRange = useMemo(() => {
-    if (stops.length === 0) return 'No dates set';
-    const allDates = stops.flatMap(s => [new Date(s.arrival_date), new Date(s.departure_date)]).sort((a,b) => a-b);
-    const start = allDates[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const end = allDates[allDates.length - 1].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `${start} - ${end}`;
-  }, [stops]);
+    if (trip && trip.start_date && trip.end_date) {
+      const start = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const end = new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `${start} - ${end}`;
+    }
+    return 'No dates set';
+  }, [trip]);
 
   const selectedStopDays = useMemo(() => {
     if (!selectedStop) return [];
@@ -263,7 +284,7 @@ export default function ItineraryBuilder({ tripId }) {
     const enrichedStop = {
       ...newStop,
       id: `stop-${Date.now()}`,
-      trip_id: tripId || 'new-trip',
+      trip_id: id || 'new-trip',
       stop_order: stops.length + 1,
       activities: []
     };
@@ -333,7 +354,8 @@ export default function ItineraryBuilder({ tripId }) {
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex-1 min-w-0 pr-4">
-            <h1 className="text-xl md:text-2xl font-bold text-slate-900 truncate">My Incredible Trip</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900 truncate">{trip ? trip.name : 'Loading...'}</h1>
+            {trip && trip.description && <p className="text-sm text-slate-500 truncate">{trip.description}</p>}
             <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
               <span className="flex items-center gap-1 shrink-0"><Calendar className="w-4 h-4" /> <span className="hidden sm:inline">{tripDateRange}</span></span>
               <span className="hidden sm:inline">&bull;</span>
@@ -343,11 +365,57 @@ export default function ItineraryBuilder({ tripId }) {
             </div>
           </div>
           
-          <div className="flex items-center gap-3 md:gap-6 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Home */}
+            <button
+              onClick={() => navigate('/')}
+              title="Go to Dashboard"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:text-teal-600 hover:bg-teal-50 border border-slate-200 hover:border-teal-200 transition-all focus:outline-none focus:ring-2 focus:ring-teal-400"
+            >
+              <Home className="w-4 h-4" />
+              <span className="hidden sm:inline">Home</span>
+            </button>
+
+            {/* Explore */}
+            <button
+              onClick={() => navigate('/cities')}
+              title="Explore Destinations"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:text-sky-600 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 transition-all focus:outline-none focus:ring-2 focus:ring-sky-400"
+            >
+              <Globe className="w-4 h-4" />
+              <span className="hidden sm:inline">Explore</span>
+            </button>
+
+            {/* Share */}
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/trips/${id}/itinerary`;
+                navigator.clipboard.writeText(url).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                });
+              }}
+              title="Copy shareable link"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-teal-400 ${
+                copied
+                  ? 'bg-green-50 border-green-200 text-green-600'
+                  : 'text-slate-600 hover:text-teal-600 hover:bg-teal-50 border-slate-200 hover:border-teal-200'
+              }`}
+            >
+              {copied ? <CheckCheck className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+              <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
+            </button>
+
+            {/* Divider */}
+            <div className="hidden sm:block w-px h-6 bg-slate-200" />
+
+            {/* Est. Total — desktop */}
             <div className="hidden md:flex flex-col items-end">
               <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Est. Total</span>
               <span className="text-lg font-bold text-orange-600">{formatCurrency(totalCost)}</span>
             </div>
+
+            {/* Add Stop */}
             <button 
               onClick={() => setIsAddingStop(true)}
               className="flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-medium transition-colors shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"

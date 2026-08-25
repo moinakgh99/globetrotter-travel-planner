@@ -106,13 +106,7 @@ export default function CreateTrip({ onTripCreated, onCancel }) {
         onTripCreated(data);
       } else {
         // Redirect to the wizard
-        navigate(`/trips/${data.id}/plan`, { 
-          state: { 
-            tripName: data.name, 
-            startDate: data.start_date, 
-            endDate: data.end_date 
-          } 
-        });
+        navigate(`/trips/${data.id}/plan`);
       }
     } catch (err) {
       setApiError(err.message || 'An unexpected error occurred.');

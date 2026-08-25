@@ -53,12 +53,13 @@ const GENERATION_MESSAGES = [
 
 export default function TripPlannerWizard({ 
   tripId = 'trip-1', 
-  tripName = 'My Trip', 
-  startDate, 
-  endDate, 
+  tripName: initialTripName = 'My Trip', 
+  startDate: initialStartDate, 
+  endDate: initialEndDate, 
   onItineraryGenerated 
 }) {
   // --- STATE ---
+  const [trip, setTrip] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [direction, setDirection] = useState('forward');
   
@@ -86,6 +87,28 @@ export default function TripPlannerWizard({
     }
     return () => clearInterval(interval);
   }, [isGenerating]);
+
+  // --- FETCH TRIP EFFECT ---
+  useEffect(() => {
+    const fetchTrip = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/trips/${tripId}`, {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setTrip(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch trip", err);
+      }
+    };
+    if (tripId && tripId !== 'trip-1') {
+      fetchTrip();
+    }
+  }, [tripId]);
 
   // --- HANDLERS ---
   const handleNext = () => {
@@ -144,6 +167,9 @@ export default function TripPlannerWizard({
     setError(null);
     setGenerationMsgIndex(0);
 
+    const actualStartDate = trip?.start_date || initialStartDate || "2026-12-10";
+    const actualEndDate = trip?.end_date || initialEndDate;
+
     try {
       const payload = {
         destinations: formData.destinations,
@@ -153,8 +179,8 @@ export default function TripPlannerWizard({
         budget_tier: formData.budgetTier,
         interests: formData.interests,
         pace: formData.pace,
-        start_date: startDate || "2026-12-10",
-        duration_days: endDate && startDate ? Math.max(1, Math.round((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1) : 8,
+        start_date: actualStartDate,
+        duration_days: actualEndDate && actualStartDate ? Math.max(1, Math.round((new Date(actualEndDate) - new Date(actualStartDate)) / (1000 * 60 * 60 * 24)) + 1) : 8,
         notes: formData.notes
       };
 
